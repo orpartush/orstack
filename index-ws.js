@@ -1,56 +1,46 @@
 const express = require("express");
-const server = require("node:http").createServer();
+const http = require("http");
+const path = require("path");
+const WebSocket = require("ws");
+
 const app = express();
+const server = http.createServer(app);
 const PORT = 3000;
 
-// biome-ignore lint/complexity/useArrowFunction: <explanation>
-app.get("/", function (req, res) {
-  res.sendFile("index.html", { root: __dirname });
+// Serve the index.html file
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
 });
 
-server.on("request", app);
+// Attach WebSocket server to the HTTP server
+const wss = new WebSocket.Server({ server });
 
-// biome-ignore lint/complexity/useArrowFunction: <explanation>
-server.listen(PORT, function () {
-  // biome-ignore lint/style/useTemplate: <explanation>
-  console.log("Listening on " + PORT);
-});
-
-/** Websocket **/
-const WebSocketServer = require("ws").Server;
-
-const wss = new WebSocketServer({ server: server });
-
-wss.on("connection", function connection(ws) {
-  const numClients = wss.clients.size;
-
-  console.log("clients connected: ", numClients);
-
-  wss.broadcast(`Current visitors: ${numClients}`);
-
-  if (ws.readyState === ws.OPEN) {
-    ws.send("welcome!");
-  }
-
-  ws.on("close", function close() {
-    wss.broadcast(`Current visitors: ${wss.clients.size}`);
-    console.log("A client has disconnected");
-  });
-
-  ws.on("error", function error() {
-    //
-  });
-});
-
-/**
- * Broadcast data to all connected clients
- * @param  {Object} data
- * @void
- */
 wss.broadcast = function broadcast(data) {
-  console.log("Broadcasting: ", data);
-  // biome-ignore lint/complexity/noForEach: <explanation>
   wss.clients.forEach(function each(client) {
-    client.send(data);
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(data);
+    }
   });
 };
+
+wss.on("connection", (ws) => {
+  console.log("A new client connected");
+  const numClients = wss.clients.size;
+  wss.broadcast(`Current visitors: ${numClients}`);
+
+  ws.send("welcome!");
+
+  ws.on("close", () => {
+    console.log("A client has disconnected");
+    wss.broadcast(`Current visitors: ${wss.clients.size}`);
+  });
+
+  ws.on("error", (error) => {
+    console.error("WebSocket error:", error);
+  });
+});
+
+// Start the HTTP server
+server.listen(PORT, () => {
+  console.log(`Listening on port ${PORT}`);
+});
