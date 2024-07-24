@@ -1,5 +1,8 @@
+const express = require("express");
 const http = require("node:http");
-
+const app = express();
+const server = http.createServer(app);
+const PORT = 3000;
 //sqlite3
 const sqlite = require("sqlite3");
 const db = new sqlite.Database(":memory:");
@@ -7,7 +10,7 @@ const db = new sqlite.Database(":memory:");
 db.serialize(() => {
   db.run(`
 		CREATE TABLE visitors (
-			count INTEGER
+			count INTEGER,
 			time TEXT
 		)	
 	`);
@@ -17,8 +20,8 @@ let numClients = 0;
 const insertDoc = () => {
   ++numClients;
   db.run(`
-		INSERT INTO visitors (count time)
-		VALUES (${numClients}) datetime('now')
+		INSERT INTO visitors (count, time)
+		VALUES (${numClients}, datetime('now'))
 	`);
 };
 
@@ -40,19 +43,15 @@ function shutdownDB() {
 }
 
 process.on("SIGINT", () => {
-  Server.close(() => {
+  console.log("sigint");
+  server.close(() => {
     shutdownDB();
   });
 });
 
-http
-  // biome-ignore lint/complexity/useArrowFunction: <explanation>
-  .createServer(function (req, res) {
-    res.write("On the way to being a full stack engineer!");
-    console.log("insering doc");
-    insertDoc();
-    res.end();
-  })
-  .listen(3000);
-
-console.log("Server started on port 3000!");
+// Start the HTTP server
+server.listen(PORT, () => {
+  console.log(`Listening on port ${PORT}`);
+  console.log("inserting doc!");
+  insertDoc();
+});
